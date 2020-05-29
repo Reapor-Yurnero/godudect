@@ -21,8 +21,11 @@ type testData struct {
 	n    [2]float64
 }
 
+// Input is the data structure representing the input data and its categorization.
 type Input struct {
-	Data  []byte
+	// Data is the actual input fed into the computation function.
+	Data []byte
+	// Class is the categorization of the input, and must be 0 or 1.
 	Class uint8
 }
 
@@ -140,6 +143,12 @@ func doMeasurement(init func() func([]byte), inputs []Input) []float64 {
 	return measurements
 }
 
+// Dudect tests if the computation function returned by initState is constant time
+// against two classes of inputs returned by prepareInputs.
+// initState: a function returns a closure function as the target computation to be
+// measured (note this function should take []byte as input
+// prepareInputs: a function returns a list of Input to be fed into the computation
+// function
 func Dudect(initState func() func([]byte), prepareInputs func() []Input) {
 	inputs := prepareInputs()
 	measurements := doMeasurement(initState, inputs)
