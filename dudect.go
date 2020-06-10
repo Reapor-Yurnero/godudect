@@ -76,7 +76,13 @@ func report(t []testData) {
 	maxT := math.Abs(t[mt].compute())
 	maxTN := t[mt].n[0] + t[mt].n[1]
 	maxTau := maxT / math.Sqrt(maxTN)
+	overallT := math.Abs(t[0].compute())
+	overallTN := t[0].n[0] + t[0].n[1]
+	overallTau := overallT / math.Sqrt(overallTN)
 	fmt.Printf("total measurements: %7.2f Million\n", maxTN/1e6)
+	fmt.Printf("class-0 mean overall: %.2e, population: %.0f; class-1 mean overall: %.2e, population: %.0f\n", t[0].mean[0], t[0].n[0], t[0].mean[1], t[0].n[1])
+	fmt.Printf("class-0 mean of max_t: %.2e, population: %.0f; class-1 mean of max_t: %.2e, population: %.0f\n", t[mt].mean[0], t[mt].n[0], t[mt].mean[1], t[mt].n[1])
+	fmt.Printf("overall t-value: %7.2f, max tau: %.2e, (5/tau)^2: %.2e\n", overallT, overallTau, math.Pow(5/overallTau, 2))
 	fmt.Printf("max t-value: %7.2f, max tau: %.2e, (5/tau)^2: %.2e\n", maxT, maxTau, math.Pow(5/maxTau, 2))
 	if maxT > tThresholdBananas {
 		fmt.Println("Definitely not constant time.")
@@ -129,12 +135,22 @@ func preparePercentiles(measurements []float64) []float64 {
 	return percentiles
 }
 
-func doMeasurement(init func() func([]byte), inputs []Input) []float64 {
+func doMeasurement(init func(class uint8) func([]byte), inputs []Input, initRepeatedly bool) []float64 {
 	numberMeasurements := len(inputs)
 	var measurements []float64
-	doOneComputation := init()
 	tscOverhead := gotsc.TSCOverhead()
+	if !initRepeatedly {
+		doOneComputation := init(0)
+		for i := 0; i < numberMeasurements; i++ {
+			start := gotsc.BenchStart()
+			doOneComputation(inputs[i].Data)
+			end := gotsc.BenchEnd()
+			measurements = append(measurements, float64(end-start-tscOverhead))
+		}
+		return measurements
+	}
 	for i := 0; i < numberMeasurements; i++ {
+		doOneComputation := init(inputs[i].Class)
 		start := gotsc.BenchStart()
 		doOneComputation(inputs[i].Data)
 		end := gotsc.BenchEnd()
@@ -146,12 +162,12 @@ func doMeasurement(init func() func([]byte), inputs []Input) []float64 {
 // Dudect tests if the computation function returned by initState is constant time
 // against two classes of inputs returned by prepareInputs.
 // initState: a function returns a closure function as the target computation to be
-// measured (note this function should take []byte as input
+// measured (note this function should take []byte as input).
 // prepareInputs: a function returns a list of Input to be fed into the computation
 // function
-func Dudect(initState func() func([]byte), prepareInputs func() []Input) {
+func Dudect(initState func(class uint8) func([]byte), prepareInputs func() []Input, initRepeatedly bool) {
 	inputs := prepareInputs()
-	measurements := doMeasurement(initState, inputs)
+	measurements := doMeasurement(initState, inputs, initRepeatedly)
 	t := updateStatics(measurements, inputs)
 	report(t)
 }
