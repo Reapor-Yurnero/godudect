@@ -62,6 +62,10 @@ func (t *testData) compute() float64 {
 }
 
 func (t *testData) enoughSample(verbose bool) (bool, float64) {
+	if t.n[0] <= 1 || t.n[1] <= 1 {
+		// handle the case that t[101] is not triggered
+		return false, 0.0
+	}
 	variance := [2]float64{0, 0}
 	variance[0] = math.Sqrt(t.m2[0] / (t.n[0] - 1))
 	variance[1] = math.Sqrt(t.m2[1] / (t.n[1] - 1))
