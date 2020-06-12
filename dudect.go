@@ -13,6 +13,8 @@ const (
 	numberTests        = 1 + numberPercentiles + 1
 	tThresholdBananas  = 500
 	tThresholdModerate = 10
+	zAlphaHalf         = 1.96  // alpha = 0.05
+	zBeta              = 1.645 // beta = 0.05
 )
 
 type testData struct {
@@ -49,6 +51,9 @@ func (t *testData) push(newData float64, class uint8) {
 
 func (t *testData) compute() float64 {
 	variance := [2]float64{0, 0}
+	if t.n[0] <= 1 || t.n[1] <= 1 {
+		panic(fmt.Sprintf("sample size invalid: %.0f, %.0f", t.n[0], t.n[1]))
+	}
 	variance[0] = t.m2[0] / (t.n[0] - 1)
 	variance[1] = t.m2[1] / (t.n[1] - 1)
 	num := t.mean[0] - t.mean[1]
@@ -56,17 +61,54 @@ func (t *testData) compute() float64 {
 	return num / den // t_value
 }
 
+func (t *testData) enoughSample(verbose bool) (bool, float64) {
+	variance := [2]float64{0, 0}
+	variance[0] = math.Sqrt(t.m2[0] / (t.n[0] - 1))
+	variance[1] = math.Sqrt(t.m2[1] / (t.n[1] - 1))
+
+	r := t.n[0] / t.n[1]
+	if r < 1 {
+		r = 1 / r
+	}
+	if verbose {
+		fmt.Println(variance)
+		fmt.Println(r)
+		fmt.Println(t.mean[0] - t.mean[1])
+	}
+	n := (math.Pow(variance[0], 2) + math.Pow(variance[1], 2)/r) * math.Pow(zAlphaHalf+zBeta, 2) / math.Pow(t.mean[0]-t.mean[1], 2)
+	smallerSample := math.Min(t.n[0], t.n[1])
+	if smallerSample < n {
+		if verbose {
+			fmt.Printf("%.0f is suggested, while the smaller class has only %.0f population (%.0f%%).\n", n, smallerSample, smallerSample/n*100)
+		}
+		return false, smallerSample / n
+	}
+	return true, 1
+}
+
 func maxTest(t []testData) int {
 	testID := 0
 	max := float64(0)
+	maxDis := float64(0)
 	for i := range t {
-		if t[i].n[0]+t[i].n[1] > enoughMeasurements {
+		if enough, dis := t[i].enoughSample(false); enough {
 			currentT := math.Abs(t[i].compute())
 			if currentT > max {
 				max = currentT
 				testID = i
 			}
+		} else {
+			if dis > maxDis {
+				maxDis = dis
+				testID = i
+			}
 		}
+	}
+	if max == 0.0 {
+		fmt.Printf("Sample size is not large enough, using %d-th sample closest to the suggested size for t-value computation.", testID)
+		t[testID].enoughSample(true)
+	} else {
+		fmt.Printf("Sample under percentile %.2f%% is computed to have the max-t", (1-math.Pow(0.5, 10*float64(testID-1+1)/numberPercentiles))*100)
 	}
 	return testID
 }

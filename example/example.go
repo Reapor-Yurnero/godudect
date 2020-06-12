@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	numberMeasurements = 100000
+	numberMeasurements = 10000000
 )
 
-func initState() func([]byte) {
+func initState(_ uint8) func([]byte) {
 	key := []byte("passphrasewhichneedstobe32bytes!")
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -26,9 +26,9 @@ func initState() func([]byte) {
 
 	mode := cipher.NewCBCEncrypter(block, iv)
 	return func(plaintext []byte) {
-		if len(plaintext)%aes.BlockSize != 0 {
-			panic("plaintext is not a multiple of the block size")
-		}
+		//if len(plaintext)%aes.BlockSize != 0 {
+		//	panic("plaintext is not a multiple of the block size")
+		//}
 		ciphertext := make([]byte, len(plaintext))
 		mode.CryptBlocks(ciphertext, plaintext)
 	}
@@ -36,16 +36,25 @@ func initState() func([]byte) {
 
 func prepareInputs() []dudect.Input {
 	var inputs = make([]dudect.Input, numberMeasurements)
+	constData := make([]byte, 64*aes.BlockSize)
+	if _, err := io.ReadFull(rand.Reader, constData); err != nil {
+		panic(err)
+	}
+
 	for i := 0; i < numberMeasurements; i++ {
 		var randByte = make([]byte, 1)
 		if n, err := io.ReadFull(rand.Reader, randByte); err != nil || n != 1 {
 			panic(fmt.Sprintf("Randbit failed with Err: %v, n: %v", err, n))
 		}
+
 		if int(randByte[0])%2 == 0 {
-			inputs[i] = dudect.Input{Data: []byte("0000000000000000"), Class: 0}
+			cData := make([]byte, 64*aes.BlockSize)
+			copy(cData, constData)
+			inputs[i] = dudect.Input{Data: cData, Class: 0}
+			//fmt.Printf("%p, %p\n", &constData[0], &inputs[i].Data[0])
 			continue
 		}
-		var data = make([]byte, aes.BlockSize)
+		var data = make([]byte, 64*aes.BlockSize)
 		if _, err := io.ReadFull(rand.Reader, data); err != nil {
 			panic(err)
 		}
@@ -55,5 +64,5 @@ func prepareInputs() []dudect.Input {
 }
 
 func main() {
-	dudect.Dudect(initState, prepareInputs)
+	dudect.Dudect(initState, prepareInputs, false)
 }
