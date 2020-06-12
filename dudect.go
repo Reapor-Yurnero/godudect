@@ -75,9 +75,9 @@ func (t *testData) enoughSample(verbose bool) (bool, float64) {
 		r = 1 / r
 	}
 	if verbose {
-		fmt.Println(variance)
-		fmt.Println(r)
-		fmt.Println(t.mean[0] - t.mean[1])
+		fmt.Println("variance: ", variance)
+		fmt.Println("ratio: ", r)
+		fmt.Println("mean delta: ", t.mean[0]-t.mean[1])
 	}
 	n := (math.Pow(variance[0], 2) + math.Pow(variance[1], 2)/r) * math.Pow(zAlphaHalf+zBeta, 2) / math.Pow(t.mean[0]-t.mean[1], 2)
 	smallerSample := math.Min(t.n[0], t.n[1])
@@ -109,10 +109,10 @@ func maxTest(t []testData) int {
 		}
 	}
 	if max == 0.0 {
-		fmt.Printf("Sample size is not large enough, using %d-th sample closest to the suggested size for t-value computation.", testID)
+		fmt.Printf("Sample size is not large enough, using %d-th sample closest to the suggested size for t-value computation.\n", testID)
 		t[testID].enoughSample(true)
 	} else {
-		fmt.Printf("Sample under percentile %.2f%% is computed to have the max-t", (1-math.Pow(0.5, 10*float64(testID-1+1)/numberPercentiles))*100)
+		fmt.Printf("Sample under percentile %.2f%% is computed to have the max-t\n", (1-math.Pow(0.5, 10*float64(testID-1+1)/numberPercentiles))*100)
 	}
 	return testID
 }
